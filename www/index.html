@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TikTok Arena Royale </title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: #080911; color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden; user-select: none;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-3px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+    .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+
+    #game-container {
+      position: relative;
+      width: 100vw; height: 100vh;
+      max-width: calc(100vh * (9 / 16));
+      background: radial-gradient(circle, #1a1c2e 0%, #0d0e17 100%);
+      display: flex; flex-direction: column; justify-content: space-between;
+      border: 2px solid #ffe600;
+      box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+    }
+
+    #hud {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 15px; background: rgba(0,0,0,0.8);
+      border-bottom: 2px solid #ff0055; z-index: 10;
+    }
+
+    .stat-box { text-align: center; }
+    .stat-box .title { font-size: 10px; color: #ffe600; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-box .value { font-size: 20px; font-weight: bold; }
+
+    .champion-box {
+      text-align: center; background: rgba(255, 230, 0, 0.15);
+      border: 1px solid #ffe600; border-radius: 8px; padding: 5px 15px;
+      box-shadow: 0 0 10px rgba(255, 230, 0, 0.3);
+    }
+    .champion-box .title { font-size: 10px; color: #ffe600; text-transform: uppercase; margin-bottom: 2px; }
+    .champion-box .value { font-size: 14px; font-weight: 900; color: #fff; }
+    .champion-box .score { font-size: 12px; color: #00ff66; font-weight: bold; }
+
+    canvas { width: 100%; height: 100%; display: block; background: #111322; }
+
+    #podium-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(8, 9, 17, 0.95); backdrop-filter: blur(10px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 20; padding: 20px;
+    }
+    #podium-overlay h1 { font-size: 28px; color: #ffe600; text-shadow: 0 0 15px #ffe600; margin-bottom: 25px; text-transform: uppercase; text-align: center; }
+    .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-bottom: 25px; }
+    .podium-step { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 90px; border-radius: 8px 8px 0 0; padding: 8px; }
+    .step-1 { height: 140px; background: linear-gradient(180deg, #ffe600, #b3a100); border: 2px solid #fff; }
+    .step-2 { height: 100px; background: linear-gradient(180deg, #d1d5db, #6b7280); }
+    .step-3 { height: 75px; background: linear-gradient(180deg, #d97706, #78350f); }
+    .podium-rank { font-size: 22px; font-weight: 900; color: #111; margin-bottom: 4px; }
+    .podium-name { font-size: 12px; font-weight: bold; color: #fff; text-shadow: 0 0 4px #000; text-align: center; word-break: break-all; }
+    .restart-timer { font-size: 16px; color: #00f0ff; font-weight: bold; margin-top: 10px; }
+    .btn-restart { padding: 10px 20px; background: #00f0ff; color: #000; font-weight: bold; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; margin-top: 15px; }
+
+    /* Botão de Tela Cheia discreto */
+    #btn-fullscreen {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff;
+      color: #00f0ff; padding: 4px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: bold; cursor: pointer; z-index: 30;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <button id="btn-fullscreen" onclick="toggleFullScreen()">⛶ Tela Cheia</button>
+
+  <div id="hud">
+    <div class="stat-box">
+      <div class="title">Arena</div>
+      <div class="value"><span id="player-count">0</span> / 100</div>
+    </div>
+    
+    <div class="champion-box">
+      <div class="title">👑 Top Campeão</div>
+      <div class="value" id="top-champion-name">Ninguém</div>
+      <div class="score"><span id="top-champion-score">0</span> Vitórias</div>
+    </div>
+
+    <div class="stat-box">
+      <div class="title">Áudio</div>
+      <div class="value" style="font-size: 10px; color: #ff0055; font-weight: normal; margin-top: 5px;" id="audio-status">
+        🔇 Clique p/ Ativar
+      </div>
+    </div>
+  </div>
+
+  <div id="podium-overlay">
+    <h1>👑 Vencedores! 👑</h1>
+    
+    <div class="podium-container">
+      <div class="podium-step step-2"><div class="podium-name" id="p2-name">---</div><div class="podium-rank">2º</div></div>
+      <div class="podium-step step-1"><div class="podium-name" id="p1-name">---</div><div class="podium-rank">1º</div></div>
+      <div class="podium-step step-3"><div class="podium-name" id="p3-name">---</div><div class="podium-rank">3º</div></div>
+    </div>
+
+    <div class="restart-timer">Nova rodada em <span id="countdown">5</span>s...</div>
+    <button class="btn-restart" onclick="resetGame()">Reiniciar Agora</button>
+  </div>
+
+  <canvas id="arenaCanvas"></canvas>
+</div>
+
+<script>
+  const canvas = document.getElementById('arenaCanvas');
+  const ctx = canvas.getContext('2d');
+  const container = document.getElementById('game-container');
+
+  function resizeCanvas() { canvas.width = container.clientWidth; canvas.height = container.clientHeight - 60; }
+  resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+
+  let players = []; let eliminatedPlayers = []; let particles = []; let projectiles = []; let floatingTexts = [];
+  let recentDonors = new Map(); let globalLeaderboard = {}; let currentTopChampion = { name: 'Ninguém', score: 0 };
+  
+  const MAX_PLAYERS = 100; let gameOver = false; let podiumTimer = null; let countdownInterval = null; let motivationalTimeout = null;
+
+  let joinQueue = []; let isProcessingQueue = false;
+  const botNames = ['Bot_Ninja', 'Bot_Mestre', 'Bot_Lenda', 'Bot_Furia', 'Bot_Zumbi', 'Bot_Destruidor'];
+
+  const motivationalPhrases = [
+    "Se você vencer por um minuto o chefe aparecera para tentar te derrotar e te tirar do rank!",
+    "Toquem duas vezes na tela sem parar para curar a própria vida!",
+    "Se você está perdendo vida, toque na tela muitas vezes e ganhe HP!",
+    "Digite EU no chat para entrar na batalha!",
+    "Qualquer presente de 1 moeda ataca seus inimigos e te deixa imune!",
+    "Se você seguir a live agora, vai causar um terremoto!",
+    "Um Chapéu ou Coroa causa Dano em Área gigantesco!"
+  ];
+
+  // ==========================================
+  // --- SISTEMA DE ÁUDIO E MÚSICA DE FUNDO ---
+  // ==========================================
+  const playlist = [
+    'musica_fundo.mp3',
+    // 'musica_fundo_2.mp3',
+    // 'musica_fundo_3.mp3'
+  ];
+  
+  let currentPlaylistIndex = 0;
+  let bgm = new Audio(playlist[currentPlaylistIndex]);
+  bgm.volume = 0.3;
+
+  bgm.addEventListener('ended', () => {
+    currentPlaylistIndex = (currentPlaylistIndex + 1) % playlist.length;
+    bgm.src = playlist[currentPlaylistIndex];
+    bgm.play().catch(e => {});
+  });
+
+  let audioStarted = false;
+  function initAudio() {
+    if (!audioStarted) {
+      bgm.play().then(() => {
+        document.getElementById('audio-status').innerText = '🔊 Som Ativo';
+        document.getElementById('audio-status').style.color = '#00ff66';
+      }).catch(e => console.log("Aguardando interação do Chrome..."));
+      audioStarted = true;
+    }
+  }
+
+  // Função de Tela Cheia para o Celular
+  function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log(`Erro ao tentar modo tela cheia: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }
+
+  // Interações tradicionais
+  window.addEventListener('mousedown', initAudio);
+  window.addEventListener('keydown', initAudio);
+  window.addEventListener('touchstart', initAudio);
+  window.addEventListener('mousemove', initAudio);
+
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initAudio, 500);
+  });
+
+  function playSoundEffect(type) {
+    let filename = '';
+    let vol = 0.5;
+
+    if (type === 'hit') { filename = 'ataque_leve.mp3'; vol = 0.8; }
+    else if (type === 'heavy') { filename = 'ataque_forte.mp3'; vol = 1.0; }
+    else if (type === 'heal') { filename = 'cura.mp3'; vol = 0.7; }
+    else if (type === 'terremoto') { filename = 'terremoto.mp3'; vol = 1.0; } 
+    else if (type === 'danger') { filename = 'alerta_vida.mp3'; vol = 0.5; } 
+
+    if (filename) {
+      let sfx = new Audio(filename);
+      sfx.volume = vol;
+      sfx.play().catch(e => {});
+    }
+
+    if (type === 'victory') {
+      const victoryFiles = ['vitoria.mp3', 'vitoria1.mp3', 'vitoria2.mp3', 'vitoria3.mp3'];
+      const randomVictory = victoryFiles[Math.floor(Math.random() * victoryFiles.length)];
+      let vicSfx = new Audio(randomVictory);
+      vicSfx.volume = 0.9;
+      vicSfx.play().catch(e => {});
+    }
+  }
+  // ==========================================
+
+  function speakText(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'pt-BR'; utterance.rate = 1.1; utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  }
+
+  function speakWelcome(username) {
+    speakText(`Bem-vindo à arena, ${username.replace('@', '')}!`);
+  }
+
+  function scheduleNextMotivationalPhrase() {
+    if (gameOver) return;
+    const phrase = motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
+    speakText(phrase);
+
+    const intervals = [8000, 15000, 25000];
+    motivationalTimeout = setTimeout(() => {
+      if (!gameOver) {
+        scheduleNextMotivationalPhrase();
+      }
+    }, intervals[Math.floor(Math.random() * intervals.length)]);
+  }
+  scheduleNextMotivationalPhrase();
+
+  const spriteURLs = [
+    'https://raw.githubusercontent.com/pokeapi/sprites/master/sprites/pokemon/25.png',
+    'https://raw.githubusercontent.com/pokeapi/sprites/master/sprites/pokemon/1.png',
+    'https://raw.githubusercontent.com/pokeapi/sprites/master/sprites/pokemon/4.png',
+    'https://raw.githubusercontent.com/pokeapi/sprites/master/sprites/pokemon/7.png',
+    'https://raw.githubusercontent.com/pokeapi/sprites/master/sprites/pokemon/133.png'
+  ];
+
+  const loadedSprites = [];
+  spriteURLs.forEach(url => { const img = new Image(); img.src = url; loadedSprites.push(img); });
+  window.addEventListener('contextmenu', e => e.preventDefault());
+
+  function spawnFloatingText(x, y, text, color) {
+    floatingTexts.push({ x, y, text, color, life: 1.0 });
+  }
+
+  function queuePlayer(name) {
+    if (gameOver || players.length >= MAX_PLAYERS) return;
+    if (joinQueue.includes(name) || players.some(p => p.name === name)) return;
+    joinQueue.push(name); processJoinQueue();
+  }
+
+  function processJoinQueue() {
+    if (isProcessingQueue || joinQueue.length === 0 || gameOver) return;
+    isProcessingQueue = true;
+    const nextPlayerName = joinQueue.shift();
+    addPlayer(nextPlayerName);
+
+    setTimeout(() => { isProcessingQueue = false; processJoinQueue(); }, 1500);
+  }
+
+  function addPlayer(username, isBot = false) {
+    const name = username || (isBot ? botNames[Math.floor(Math.random() * botNames.length)] + '_' + Math.floor(Math.random() * 9999) : `@User_${players.length + 1}`);
+    const randomSprite = loadedSprites[Math.floor(Math.random() * loadedSprites.length)];
+    
+    initAudio();
+
+    players.push({
+      id: Date.now() + Math.random(), name: name,
+      x: 30 + Math.random() * (canvas.width - 60), y: 30 + Math.random() * (canvas.height - 60),
+      radius: 18, sprite: randomSprite, hp: 100,
+      vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2
+    });
+    document.getElementById('player-count').innerText = players.length;
+    if (!name.startsWith('Bot_') && name !== 'junin_cabeção') {
+      speakWelcome(name);
+    }
+  }
+
+  function spawnRandomBot() {
+    const randomName = botNames[Math.floor(Math.random() * botNames.length)] + '_' + Math.floor(Math.random() * 9999);
+    queuePlayer(randomName);
+  }
+
+  // --- SPAWN AUTOMÁTICO DE BOTS (DE 5 A 12 SEGUNDOS) ---
+  function scheduleNextBotSpawn() {
+    if (gameOver) return;
+    const randomTime = Math.floor(Math.random() * (12000 - 5000 + 1)) + 5000;
+
+    setTimeout(() => {
+      if (!gameOver && players.length < MAX_PLAYERS) {
+        const hasJunin = players.some(p => p.name === 'junin_cabeção');
+        if (!hasJunin && Math.random() < 0.3) {
+          addPlayer('junin_cabeção', true);
+        } else {
+          spawnRandomBot();
+        }
+      }
+      scheduleNextBotSpawn();
+    }, randomTime);
+  }
+  scheduleNextBotSpawn();
+
+  // --- LÓGICA DO JUNIN CABEÇÃO ---
+  setInterval(() => {
+    if (gameOver) return;
+    const junin = players.find(p => p.name === 'junin_cabeção');
+    if (junin) {
+      const otherBots = players.filter(p => p.name.startsWith('Bot_') && p.name !== 'junin_cabeção');
+      if (otherBots.length > 0) {
+        const targetBot = otherBots[Math.floor(Math.random() * otherBots.length)];
+        targetBot.hp -= 35; 
+        spawnHitParticles(targetBot.x, targetBot.y, '#ff0055', 10);
+        spawnFloatingText(targetBot.x, targetBot.y, '-35 (Junin)', '#ff0055');
+        playSoundEffect('heavy');
+        checkDeaths();
+      }
+    }
+  }, 3000);
+
+  function processLikeHeal(likerName) {
+    if (gameOver) return;
+    let player = players.find(p => p.name === likerName);
+    if (player) {
+      player.hp = Math.min(100, player.hp + 3);
+      spawnFloatingText(player.x, player.y, '+3', '#00ff66');
+      spawnHitParticles(player.x, player.y, '#00ff66', 3);
+    }
+  }
+
+  function launchGiftAttack(senderName, giftName) {
+    if (gameOver) return;
+    const sender = senderName || `@User_1`;
+    const gName = giftName ? giftName.toLowerCase() : '';
+
+    let senderPlayer = players.find(p => p.name === sender);
+    if (!senderPlayer) { queuePlayer(sender); return; }
+    recentDonors.set(sender, Date.now()); 
+
+    const isHeal = gName.includes('rose') || gName.includes('rosa');
+    const midGifts = ['perfume', 'donut', 'weight', 'haltere'];
+    const isMid = midGifts.some(g => gName.includes(g));
+    const heavyGifts = ['hat', 'chapéu', 'cap', 'crown', 'coroa', 'confetti', 'origami'];
+    const isHeavy = heavyGifts.some(g => gName.includes(g));
+
+    if (isHeal && senderPlayer) {
+      senderPlayer.hp = Math.min(100, senderPlayer.hp + 12);
+      spawnFloatingText(senderPlayer.x, senderPlayer.y, '+12', '#00ff66');
+      spawnHitParticles(senderPlayer.x, senderPlayer.y, '#00ff66', 8);
+      playSoundEffect('heal');
+      return;
+    }
+
+    if (players.length <= 1) return;
+
+    const validTargets = players.filter(p => {
+      const lastDonation = recentDonors.get(p.name);
+      return (!lastDonation || (Date.now() - lastDonation >= 3000)) && p.name !== sender;
+    });
+
+    const possibleTargets = validTargets.length > 0 ? validTargets : players.filter(p => p.name !== sender);
+    if (possibleTargets.length === 0) return;
+
+    const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+
+    let damage = 15; let speed = 8; let radius = 6; let color = '#ffe600'; let heavySplash = false;
+    if (isHeavy) { damage = 60; speed = 12; radius = 16; color = '#ff0055'; heavySplash = true; } 
+    else if (isMid) { damage = 30; speed = 10; radius = 10; color = '#ff8800'; }
+
+    projectiles.push({
+      x: target.x + (Math.random() - 0.5) * 30, y: 0,
+      targetX: target.x, targetY: target.y, targetRef: target, senderName: sender,
+      speed: speed, damage: damage, isHeavy: heavySplash, radius: radius, color: color
+    });
+  }
+
+  function applyDamage(target, damage, isHeavy, senderName) {
+    target.hp -= damage;
+    spawnHitParticles(target.x, target.y, isHeavy ? '#ff0055' : '#ffe600', isHeavy ? 15 : 6);
+    spawnFloatingText(target.x, target.y, `-${damage}`, '#ff0055');
+    playSoundEffect(isHeavy ? 'heavy' : 'hit');
+
+    if (target.hp <= 30 && target.hp > 0) {
+      playSoundEffect('danger');
+    }
+
+    if (isHeavy) { 
+      players.forEach(p => {
+        const lastDonation = recentDonors.get(p.name);
+        const isImmune = lastDonation && (Date.now() - lastDonation < 3000);
+
+        if (p !== target && p.name !== senderName && !isImmune) {
+          let dist = Math.hypot(p.x - target.x, p.y - target.y);
+          if (dist < 80) {
+            p.hp -= 20; spawnHitParticles(p.x, p.y, '#ff0055', 5); spawnFloatingText(p.x, p.y, '-20', '#ff0055');
+          }
+        }
+      });
+    }
+    checkDeaths();
+  }
+
+  function triggerFollowPower(followerName) {
+    if (players.length === 0 || gameOver) return;
+    const cleanFollowerName = followerName ? followerName.replace('@', '') : 'Novo Seguidor';
+    speakText(`Alerta de Terremoto! ${cleanFollowerName} seguiu a live!`);
+    playSoundEffect('terremoto');
+
+    container.classList.remove('shake'); void container.offsetWidth; container.classList.add('shake');
+
+    let followerPlayer = players.find(p => p.name === followerName);
+    if (!followerPlayer) queuePlayer(followerName);
+    recentDonors.set(followerName, Date.now() + 5000);
+
+    players.forEach(p => {
+      if (p.name !== followerName && p.name !== `@${followerName}`) {
+        p.hp -= 50; spawnHitParticles(p.x, p.y, '#ff0055', 12); spawnFloatingText(p.x, p.y, '-50', '#ff0055');
+      }
+    });
+    checkDeaths();
+  }
+
+  function checkDeaths() {
+    players.forEach(p => {
+      if (p.hp <= 0 && !eliminatedPlayers.includes(p.name)) { eliminatedPlayers.push(p.name); }
+    });
+    players = players.filter(p => p.hp > 0);
+    document.getElementById('player-count').innerText = players.length;
+    if (players.length === 1 && (eliminatedPlayers.length + 1) >= 2 && joinQueue.length === 0) { showPodium(); }
+  }
+
+  // --- CONTROLES DE TECLADO ---
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'e' || e.key === 'E') queuePlayer(`@Jogador_${Math.floor(Math.random() * 1000)}`); 
+    if (e.key === 'b' || e.key === 'B') spawnRandomBot(); 
+    
+    const testUser = players.length > 0 ? players[0].name : '@funny.universo';
+    if (e.key === '1') launchGiftAttack(testUser, 'Rose'); 
+    if (e.key === '2') launchGiftAttack(testUser, 'GG'); 
+    if (e.key === '3') launchGiftAttack(testUser, 'Donut'); 
+    if (e.key === '4') launchGiftAttack(testUser, 'Coroa'); 
+    if (e.code === 'KeyS') triggerFollowPower('@SeguidorHeroi'); 
+    if (e.code === 'KeyL') processLikeHeal(testUser); 
+  });
+
+  window.addEventListener('mousedown', (e) => {
+    if (gameOver) return;
+    if (e.button === 0) spawnRandomBot();
+  });
+
+  // WEBSOCKET TIKTOK
+  const ws = new WebSocket('ws://localhost:8080');
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (gameOver) return;
+    
+    if (data.type === 'chat') {
+      const text = data.comment ? data.comment.trim().toLowerCase() : '';
+      if (text === 'eu') queuePlayer(data.label);
+      else if (text === 'bot') spawnRandomBot();
+    }
+    
+    if (data.type === 'like') { processLikeHeal(data.label); }
+    if (data.type === 'gift') launchGiftAttack(data.user || data.label, data.giftName);
+    if (data.type === 'follow') triggerFollowPower(data.label);
+  };
+
+  function showPodium() {
+    gameOver = true;
+    if (motivationalTimeout) clearTimeout(motivationalTimeout);
+    playSoundEffect('victory');
+
+    const winner = players[0] ? players[0].name : 'Ninguém';
+    const second = eliminatedPlayers[eliminatedPlayers.length - 1] || 'Ninguém';
+    const third = eliminatedPlayers[eliminatedPlayers.length - 2] || 'Ninguém';
+
+    document.getElementById('p1-name').innerText = winner; document.getElementById('p2-name').innerText = second; document.getElementById('p3-name').innerText = third;
+
+    if (winner !== 'Ninguém') {
+      globalLeaderboard[winner] = (globalLeaderboard[winner] || 0) + 1;
+      if (globalLeaderboard[winner] > currentTopChampion.score) {
+        currentTopChampion.name = winner; currentTopChampion.score = globalLeaderboard[winner];
+        document.getElementById('top-champion-name').innerText = currentTopChampion.name;
+        document.getElementById('top-champion-score').innerText = currentTopChampion.score;
+      }
+    }
+
+    let timeLeft = 5; document.getElementById('countdown').innerText = timeLeft;
+    document.getElementById('podium-overlay').style.display = 'flex';
+    speakText(`Parabéns ${winner.replace('@', '')}, você sobreviveu à arena!`);
+
+    countdownInterval = setInterval(() => {
+      timeLeft -= 1; document.getElementById('countdown').innerText = timeLeft;
+      if (timeLeft <= 0) clearInterval(countdownInterval);
+    }, 1000);
+    podiumTimer = setTimeout(resetGame, 5000);
+  }
+
+  function resetGame() {
+    if (podiumTimer) clearTimeout(podiumTimer); if (countdownInterval) clearInterval(countdownInterval); if (motivationalTimeout) clearTimeout(motivationalTimeout);
+    container.classList.remove('shake');
+    players = []; eliminatedPlayers = []; particles = []; projectiles = []; floatingTexts = []; joinQueue = [];
+    recentDonors.clear(); gameOver = false; isProcessingQueue = false;
+    document.getElementById('player-count').innerText = '0'; document.getElementById('podium-overlay').style.display = 'none';
+    scheduleNextMotivationalPhrase();
+    scheduleNextBotSpawn();
+  }
+
+  function spawnHitParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) { particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, color: color, life: 1.0 }); }
+  }
+
+  function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (let y = 0; y < canvas.height; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+
+    players.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < p.radius || p.x > canvas.width - p.radius) p.vx *= -1;
+      if (p.y < p.radius || p.y > canvas.height - p.radius) p.vy *= -1;
+
+      const lastDonation = recentDonors.get(p.name); const isImmune = lastDonation && (Date.now() - lastDonation < 3000);
+
+      if (isImmune) {
+        ctx.save(); ctx.strokeStyle = '#00f0ff'; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 10; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 6, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+
+      if (p.sprite.complete) {
+        ctx.save();
+        if (p.vx < 0) { ctx.translate(p.x, p.y); ctx.scale(-1, 1); ctx.drawImage(p.sprite, -p.radius, -p.radius, p.radius * 2, p.radius * 2); }
+        else { ctx.drawImage(p.sprite, p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2); }
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#222'; ctx.fillRect(p.x - 16, p.y - p.radius - 8, 32, 4);
+      ctx.fillStyle = p.hp > 30 ? '#00ff66' : '#ff0055'; ctx.fillRect(p.x - 16, p.y - p.radius - 8, (p.hp / 100) * 32, 4);
+      ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.name, p.x, p.y - p.radius - 12);
+    });
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      let pr = projectiles[i]; pr.y += pr.speed;
+      ctx.save(); ctx.fillStyle = pr.color; ctx.shadowColor = pr.color; ctx.shadowBlur = pr.isHeavy ? 15 : 8;
+      ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (pr.y >= pr.targetY) { applyDamage(pr.targetRef, pr.damage, pr.isHeavy, pr.senderName); projectiles.splice(i, 1); }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      let pt = particles[i]; pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.05;
+      if (pt.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.save(); ctx.globalAlpha = pt.life; ctx.fillStyle = pt.color; ctx.beginPath(); ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      let ft = floatingTexts[i]; ft.y -= 1; ft.life -= 0.015;
+      if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
+      ctx.save(); ctx.globalAlpha = ft.life; ctx.fillStyle = ft.color; ctx.font = 'bold 16px Arial';
+      ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.fillText(ft.text, ft.x, ft.y); ctx.restore();
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+</script>
+</body>
+</html>
