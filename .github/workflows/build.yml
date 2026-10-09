@@ -13,10 +13,10 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           
-      - name: Configurar Java (Necessário para Android)
-        uses: actions/setup-java@v4
+      - name: Configurar Java
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -26,7 +26,11 @@ jobs:
           npm install
           npx cap sync android
           
-      - name: Compilar o APK (Trabalho pesado)
+      - name: Dar permissão ao Gradle
+        working-directory: android
+        run: chmod +x gradlew
+        
+      - name: Compilar o APK
         working-directory: android
         run: ./gradlew assembleDebug
         
