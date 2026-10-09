@@ -231,12 +231,33 @@
       vicSfx.play().catch(e => {});
     }
   }
+  
   // ==========================================
+  // --- SISTEMA DE VOZ (TTS) CORRIGIDO ---
+  // ==========================================
+  let ttsDesbloqueado = false;
+
+  function unlockTTS() {
+    if (!ttsDesbloqueado && 'speechSynthesis' in window) {
+      ttsDesbloqueado = true;
+      let wakeUp = new SpeechSynthesisUtterance('');
+      window.speechSynthesis.speak(wakeUp);
+      window.speechSynthesis.resume();
+    }
+  }
+
+  // Desbloqueia a voz no primeiro toque do usuário
+  window.addEventListener('click', unlockTTS, { once: true });
+  window.addEventListener('touchstart', unlockTTS, { once: true });
 
   function speakText(text) {
-    if ('speechSynthesis' in window) {
+    if ('speechSynthesis' in window && ttsDesbloqueado) {
+      window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'pt-BR'; utterance.rate = 1.1; utterance.pitch = 1.0;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 1.0; // Ajustado para 1.0 para funcionar no Android
+      utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   }
