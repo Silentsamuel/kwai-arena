@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TikTok Arena Royale </title>
+  <title>TikTok Arena Royale</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -78,7 +78,6 @@
     .restart-timer { font-size: 16px; color: #00f0ff; font-weight: bold; margin-top: 10px; }
     .btn-restart { padding: 10px 20px; background: #00f0ff; color: #000; font-weight: bold; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; margin-top: 15px; }
 
-    /* Botão de Tela Cheia discreto */
     #btn-fullscreen {
       position: absolute; top: 8px; right: 8px;
       background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff;
@@ -158,9 +157,7 @@
   // --- SISTEMA DE ÁUDIO E MÚSICA DE FUNDO ---
   // ==========================================
   const playlist = [
-    'musica_fundo.mp3',
-    // 'musica_fundo_2.mp3',
-    // 'musica_fundo_3.mp3'
+    'musica_fundo.mp3'
   ];
   
   let currentPlaylistIndex = 0;
@@ -184,7 +181,6 @@
     }
   }
 
-  // Função de Tela Cheia para o Celular
   function toggleFullScreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
@@ -197,7 +193,6 @@
     }
   }
 
-  // Interações tradicionais
   window.addEventListener('mousedown', initAudio);
   window.addEventListener('keydown', initAudio);
   window.addEventListener('touchstart', initAudio);
@@ -240,29 +235,31 @@
   function unlockTTS() {
     if (!ttsDesbloqueado && 'speechSynthesis' in window) {
       ttsDesbloqueado = true;
-      let wakeUp = new SpeechSynthesisUtterance('');
-      window.speechSynthesis.speak(wakeUp);
       window.speechSynthesis.resume();
+      window.speechSynthesis.cancel();
+      let wakeUp = new SpeechSynthesisUtterance('Áudio da arena ativado!');
+      wakeUp.lang = 'pt-BR';
+      wakeUp.rate = 1.0;
+      window.speechSynthesis.speak(wakeUp);
     }
   }
 
-  // Desbloqueia a voz no primeiro toque do usuário
   window.addEventListener('click', unlockTTS, { once: true });
   window.addEventListener('touchstart', unlockTTS, { once: true });
 
   function speakText(text) {
     if ('speechSynthesis' in window && ttsDesbloqueado) {
-      window.speechSynthesis.resume();
-      window.speechSynthesis.cancel();
+      // O cancel foi removido daqui para as vozes não se atropelarem e criarem uma fila
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
-      utterance.rate = 1.0; // Ajustado para 1.0 para funcionar no Android
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   }
 
   function speakWelcome(username) {
+    // Agora aceita tanto jogadores reais quanto bots (tudo cai aqui)
     speakText(`Bem-vindo à arena, ${username.replace('@', '')}!`);
   }
 
@@ -324,7 +321,9 @@
       vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2
     });
     document.getElementById('player-count').innerText = players.length;
-    if (!name.startsWith('Bot_') && name !== 'junin_cabeção') {
+    
+    // Regra alterada: agora dá boas vindas a TODOS (exceto o junin_cabeção, que entra quieto para atacar)
+    if (name !== 'junin_cabeção') {
       speakWelcome(name);
     }
   }
@@ -334,7 +333,6 @@
     queuePlayer(randomName);
   }
 
-  // --- SPAWN AUTOMÁTICO DE BOTS (DE 5 A 12 SEGUNDOS) ---
   function scheduleNextBotSpawn() {
     if (gameOver) return;
     const randomTime = Math.floor(Math.random() * (12000 - 5000 + 1)) + 5000;
@@ -353,7 +351,6 @@
   }
   scheduleNextBotSpawn();
 
-  // --- LÓGICA DO JUNIN CABEÇÃO ---
   setInterval(() => {
     if (gameOver) return;
     const junin = players.find(p => p.name === 'junin_cabeção');
@@ -384,6 +381,7 @@
     if (gameOver) return;
     const sender = senderName || `@User_1`;
     const gName = giftName ? giftName.toLowerCase() : '';
+    const cleanSender = sender.replace('@', ''); // Prepara o nome para o narrador
 
     let senderPlayer = players.find(p => p.name === sender);
     if (!senderPlayer) { queuePlayer(sender); return; }
@@ -396,6 +394,9 @@
     const isHeavy = heavyGifts.some(g => gName.includes(g));
 
     if (isHeal && senderPlayer) {
+      // Adicionado fala para o presente de Cura
+      speakText(`${cleanSender} mandou uma rosa e curou a vida!`);
+      
       senderPlayer.hp = Math.min(100, senderPlayer.hp + 12);
       spawnFloatingText(senderPlayer.x, senderPlayer.y, '+12', '#00ff66');
       spawnHitParticles(senderPlayer.x, senderPlayer.y, '#00ff66', 8);
@@ -416,8 +417,18 @@
     const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
 
     let damage = 15; let speed = 8; let radius = 6; let color = '#ffe600'; let heavySplash = false;
-    if (isHeavy) { damage = 60; speed = 12; radius = 16; color = '#ff0055'; heavySplash = true; } 
-    else if (isMid) { damage = 30; speed = 10; radius = 10; color = '#ff8800'; }
+    if (isHeavy) { 
+      damage = 60; speed = 12; radius = 16; color = '#ff0055'; heavySplash = true; 
+      // Adicionado fala para Presente Pesado
+      speakText(`Cuidado! ${cleanSender} lançou um ataque de área devastador!`);
+    } else if (isMid) { 
+      damage = 30; speed = 10; radius = 10; color = '#ff8800'; 
+      // Adicionado fala para Presente Médio
+      speakText(`${cleanSender} enviou um ataque forte!`);
+    } else {
+      // Adicionado fala para Presente Leve
+      speakText(`${cleanSender} enviou um ataque!`);
+    }
 
     projectiles.push({
       x: target.x + (Math.random() - 0.5) * 30, y: 0,
